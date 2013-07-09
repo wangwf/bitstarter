@@ -23,9 +23,12 @@ References:
 var fs = require('fs');
 var program = require('commander');
 var cheerio = require('cheerio');
+var rest  = require('restler');
+var util  = require('util');
+
 var HTMLFILE_DEFAULT = "index.html";
 var CHECKSFILE_DEFAULT = "checks.json";
-var URLFILEDEFAULT="http://fast-waters-9544.herokuapp.com/";
+var URLFILE_DEFAULT="http://fast-waters-9544.herokuapp.com";
 
 var assertFileExists = function(infile) {
     var instr = infile.toString();
@@ -33,6 +36,28 @@ var assertFileExists = function(infile) {
         console.log("%s does not exist. Exiting.", instr);
         process.exit(1); // http://nodejs.org/api/process.html#process_process_exit_code
     }
+    return instr;
+};
+
+var assertURLExists =function(urlfile) {
+    urlfile = urlfile || URLFILE_DEFAULT;
+    console.log("url %s",urlfile);
+    var htmlfile1='tmp.html';
+
+    rest.get(urlfile).on('complete', function(result, response) {
+	if (result instanceof Error) {
+	    util.puts('Error: ' + result.message);
+//	    this.retry(5000); // try again after 5 sec
+	} else {
+	    util.puts(result);
+	    fs.writeFileSync(htmlfile1,result);
+	}
+    });
+    var instr = htmlfile1.toString();
+//    if(!fs.existsSync(instr)) {
+//        console.log("%s url -linkdoes not exist. Exiting.", instr);
+//        process.exit(1); // http://nodejs.org/api/process.html#process_process_exit_code
+//    };
     return instr;
 };
 
@@ -65,9 +90,25 @@ if(require.main == module) {
     program
         .option('-c, --checks <check_file>', 'Path to checks.json', clone(assertFileExists), CHECKSFILE_DEFAULT)
         .option('-f, --file <html_file>', 'Path to index.html', clone(assertFileExists), HTMLFILE_DEFAULT)
-        .option('-u, --url  <url_file>', 'Path to url', clone(assertFileExists), URLFILE_DEFAULT)
+//        .option('-u, --url  <url_file>', 'Path to urlfile', assertURLExists, HTMLFILE_DEFAULT)
+        .option('-u, --url  <url_file>', 'Path to urlfile')
         .parse(process.argv);
-    var checkJson = checkHtmlFile(program.file, program.checks);
+
+//    console.log(program.url);
+//    if(assertFileExists(program.file))   console.log(' -program.file %s', program.file);
+//    if(assertFileExists(program.checks)) console.log(' -program.checks %s', program.checks);
+//    if(program.url)    console.log(' -program.url %s',program.url);
+
+    var checkJson; // = checkHtmlFile(program.file, program.checks);
+    if(program.url){
+	var tmpfile=assertURLExists(program.url);
+	console.log('tmpfile %s',tmpfile);
+	checkJson = checkHtmlFile(tmpfile, program.checks);
+    }
+    else if(assertFileExists(program.file)) {
+	checkJson = checkHtmlFile(program.file, program.checks);
+    }
+
     var outJson = JSON.stringify(checkJson, null, 4);
     console.log(outJson);
 } else {
